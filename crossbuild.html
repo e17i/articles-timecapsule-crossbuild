@@ -3,7 +3,7 @@
 "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
 <html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en">
 <head>
-<!-- 2020-11-05 Do. 10:19 -->
+<!-- 2020-11-05 Do. 21:09 -->
 <meta http-equiv="Content-Type" content="text/html;charset=utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Cross-building time capsule binaries to backup NetBSD</title>
@@ -64,9 +64,9 @@ for the JavaScript code in this tag.
 <div id="content">
 <h1 class="title">Cross-building time capsule binaries to backup NetBSD</h1>
 
-<div id="outline-container-orge90945a" class="outline-2">
-<h2 id="orge90945a">TL;DR</h2>
-<div class="outline-text-2" id="text-orge90945a">
+<div id="outline-container-org83bbd5b" class="outline-2">
+<h2 id="org83bbd5b">TL;DR</h2>
+<div class="outline-text-2" id="text-org83bbd5b">
 <ul class="org-ul">
 <li>this is a followup to a previous post about <a href="../articles-netbsd-backup">Backup and Restore on NetBSD</a></li>
 <li>it aims at using <code>dump</code> and <code>restore</code> as rescue tools
@@ -78,9 +78,9 @@ provided by unmodified NetBSD installation media</li>
 </div>
 </div>
 
-<div id="outline-container-orgb4e5f3d" class="outline-2">
-<h2 id="orgb4e5f3d">Overview</h2>
-<div class="outline-text-2" id="text-orgb4e5f3d">
+<div id="outline-container-orgcf6157c" class="outline-2">
+<h2 id="orgcf6157c">Overview</h2>
+<div class="outline-text-2" id="text-orgcf6157c">
 <p>
 As mentioned in a previous post, I'm using my time capsule (also) as a
 backup system for my NetBSD/macppc server. For this, I'm usually
@@ -97,9 +97,9 @@ is used for an efficient random access to the backup dumps.
 </div>
 </div>
 
-<div id="outline-container-org95272e2" class="outline-2">
-<h2 id="org95272e2">Activating ssh on the time capsule</h2>
-<div class="outline-text-2" id="text-org95272e2">
+<div id="outline-container-org8496a2a" class="outline-2">
+<h2 id="org8496a2a">Activating ssh on the time capsule</h2>
+<div class="outline-text-2" id="text-org8496a2a">
 <p>
 First of all, we want to be able to ssh into the time capsule. The
 <code>sshd</code> is already in place, as the time capsule actually is a stripped
@@ -138,9 +138,9 @@ probably won't get in to the backup unless the key is restored&#x2026;
 </div>
 </div>
 
-<div id="outline-container-org2e845ec" class="outline-2">
-<h2 id="org2e845ec">Building <code>rmt</code> for the time capsule</h2>
-<div class="outline-text-2" id="text-org2e845ec">
+<div id="outline-container-orga13c3ac" class="outline-2">
+<h2 id="orga13c3ac">Building <code>rmt</code> for the time capsule</h2>
+<div class="outline-text-2" id="text-orga13c3ac">
 <p>
 Next, as it shows, the <code>rmt</code> tool, used for remote media access by <code>dump</code> and <code>restore</code>,
 is missing on the time capsule's reduced NetBSD installation. So, one might
@@ -192,9 +192,9 @@ ssh time-capsule
 </div>
 </div>
 
-<div id="outline-container-org8aba490" class="outline-2">
-<h2 id="org8aba490">Backup/Restore</h2>
-<div class="outline-text-2" id="text-org8aba490">
+<div id="outline-container-orgd9a47b8" class="outline-2">
+<h2 id="orgd9a47b8">Backup/Restore</h2>
+<div class="outline-text-2" id="text-orgd9a47b8">
 <p>
 Now, we can directly address the remote disks mounted on the time
 capsule via the NetBSD onboard backup tools <code>dump</code> and <code>restore</code>.
@@ -233,9 +233,9 @@ something like this:
 </div>
 </div>
 
-<div id="outline-container-org40437d4" class="outline-2">
-<h2 id="org40437d4">Mounting and accessing the backup devices on the time capsule</h2>
-<div class="outline-text-2" id="text-org40437d4">
+<div id="outline-container-org968332e" class="outline-2">
+<h2 id="org968332e">Mounting and accessing the backup devices on the time capsule</h2>
+<div class="outline-text-2" id="text-org968332e">
 <p>
 Stays the question how to mount or access the disks on the time
 capsule if they are spun down. At the moment, I've no idea howo to get
@@ -255,7 +255,7 @@ restore to a new disk.
 <p>
 Nevertheless, if someone has an idea how to spin up and mount the time
 capsule disks via command line, I would be grateful if you leave
-a comment at the <a href="https://reddit.com/r/joergsworld/comments//crossbuilding_for_timecapsule">reddit post</a>.
+a comment on <a href="https://www.reddit.com/r/joergsworld/comments/jopz27/crossbuilding_time_capsule_binaries_to_backup/">Reddit</a>.
 </p>
 </div>
 </div>
