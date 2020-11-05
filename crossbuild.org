@@ -1,0 +1,147 @@
+# -*- org-html-postamble-format:(("en" "<p class=\"author\">Author: %a (Reddit: <a href=\"https://www.reddit.com/user/e17i\">u/e17i</a>)</p> <p>Made on emacs org-mode with <a href=\"https://jessekelly881-rethink.surge.sh/\">Rethink</a></p>"));
+# org-html-postamble: t;
+# org-html-preamble-format:(("en" "<img src=\"/chrome/image1.jpg\"/><div style=\"padding:2vh\"><a style=\"font-weight:900; text-decoration:none\" href=\"/\">Home</a><span style=\"float: right\">last changed: %d</span></div>"));
+# org-html-preamble: t -*-
+#
+#+HTML_HEAD: <link rel="stylesheet" type="text/css" href="/chrome/rethink.css" />
+#+OPTIONS: toc:nil num:nil html-style:nil
+# #+INFOJS_OPT: view:showall toc:nil path:chrome/org-info.js
+#+AUTHOR: Jörg Kollmann
+#+TITLE: Cross-building time capsule binaries to backup NetBSD
+#+DATE: 2020-11-04
+
+* TL;DR
+  - this is a followup to a previous post about [[../articles-netbsd-backup][Backup and Restore on NetBSD]]
+  - it aims at using =dump= and =restore= as rescue tools
+    provided by unmodified NetBSD installation media
+  - this can be used with an Apple Time Capsule with a few preparations
+  - the time capsule needs ssh access and
+  - it needs a [[https://man.netbsd.org/rmt.8][=rmt(8)=]] binary
+
+* Overview
+
+As mentioned in a previous post, I'm using my time capsule (also) as a
+backup system for my NetBSD/macppc server. For this, I'm usually
+mounting the remote file system via =mount_afp=, then using the =dump=
+and =restore= tools to dump backups onto it. This works so far, but
+when booting into the ram disk of an installation kernel, the
+=mount_afp= command (provided by pkgsrc) is missing. So I was thinking
+of cross-compiling the tools needed on the time capsule to provide an
+easy access from a NetBSD rescue system. The [[https://man.netbsd.org/restore.8][=restore(8)=]] tool has the
+builtin ability to access remote hosts using [[https://man.netbsd.org/rcmd.3][=rcmd(3)=]] and [[https://man.netbsd.org/rmt.8][=rmt(8)=]].
+For this, =ssh= can be used as remote command execution facility; =rmt=
+is used for an efficient random access to the backup dumps.
+
+* Activating ssh on the time capsule
+
+First of all, we want to be able to ssh into the time capsule. The
+=sshd= is already in place, as the time capsule actually is a stripped
+down NetBSD system. The ssh access is disabled by default, but can be
+reactivated using acp (airport control protocol?).
+
+Install airpyrt-tools by Vince Cali:
+
+#+BEGIN_SRC shell
+git clone https://github.com/x56/airpyrt-tools.git
+python airpyrt-tools/setup.py install --user
+#+END_SRC
+
+Then set the dbug property and reboot the time capsule:
+
+#+BEGIN_SRC shell
+python -m acp -t {hostname} -p {password} --setprop dbug 0x3000
+python -m acp -t 1 {hostname} -p {password} --reboot
+#+END_SRC
+
+Now, we can ssh into it as root, using the admin password.
+Afterwards, you may put your public key into
+=/root/.ssh/autorized_keys=, this way allowing automatic backups to access the
+system. But you should probably not deactivate password
+authentication. If you need to restore your backup'd system, you
+probably won't get in to the backup unless the key is restored...
+
+* Building =rmt= for the time capsule
+
+Next, as it shows, the =rmt= tool, used for remote media access by =dump= and =restore=,
+is missing on the time capsule's reduced NetBSD installation. So, one might
+ask, where do I get this from? And the answer is of course, build it yourself.
+Using the mostly automated cross building system of NetBSD, this is quite an
+easy task. On my time capsule, the system identifies as NetBSD 6.0 evbarm. The
+binaries found on the system are built as ELF 32-bit LSB executables, ARM,
+EABI4, statically linked. So I started building a cross compilation environment
+on my NetBSD 9.0 box, hoping a statically linked binary built in this
+environment would still work on the older time capsule. While this took quite a
+little bit of time on my trusty PPC machine, it worked straight out of the box
+and was probably more easy than to setup a virtualized build service on x86.
+
+These commands did it:
+
+#+BEGIN_SRC shell
+cd /usr/src
+./build.sh -U -O ~/arm-build -m evbarm -a earmv4 tools
+./build.sh -U -u -O ~/arm-build -m evbarm -a earmv4 distribution
+#+END_SRC
+
+Now the =rmt= tool can be built as a statically linked program:
+
+#+BEGIN_SRC shell
+export LDSTATIC=-static
+cd /usr/src/usr.sbin/rmt
+~/arm-build/tooldir.NetBSD-9.0-macppc/bin/nbmake-evbarm
+#+END_SRC
+
+Finally, we transfer the binary over to the time capsule, put it into =/usr/sbin= and create a symlink
+to =/etc/rmt=, where =dump= and =restore= expect to find it.
+
+#+BEGIN_SRC shell
+cd ~/arm-build/usr.sbin/rmt/
+scp rmt time-capsule:/usr/sbin/rmt
+ssh time-capsule
+cd /usr/sbin; chmod 555 rmt; ln -s /usr/sbin/rmt /etc/rmt
+#+END_SRC
+
+* Backup/Restore
+
+Now, we can directly address the remote disks mounted on the time
+capsule via the NetBSD onboard backup tools =dump= and =restore=.
+To do this, we configure [[https://man.netbsd.org/rcmd.3][=rcmd(3)=]] to use =ssh=:
+
+#+begin_src shell
+export RCMD_CMD=ssh
+#+end_src
+
+Then we use [[https://man.netbsd.org/dump.8][=dump(8)=]] or [[https://man.netbsd.org/restore.8][=restore(8)=]] with option =-f= and give a filename in
+the form of {hostname}:{path}, where {hostname} is our time capsule
+and {path} addresses the backup directory over there. Here it is something
+like =/Volumes/dk2/ShareRoot/nbsd-backup=.
+
+Once again, this can also be achieved by piping the data via =ssh= to
+=dd=, which works flawlessly in most cases. But if you need random
+access to different parts of the backup, e.g. when doing an
+interactive restore, it doesn't work so well, especially with very
+large backup files.
+
+For example, to interactively browse such a backup, now you can just use
+something like this:
+
+#+begin_src shell
+env RCMD_CMD=ssh restore -if time-capsule:/Volumes/dk2/ShareRoot/nbsd-backup/dump.2
+#+end_src
+
+* Mounting and accessing the backup devices on the time capsule
+
+Stays the question how to mount or access the disks on the time
+capsule if they are spun down. At the moment, I've no idea howo to get
+this done. So for now I will stay at my approach using afp to remotely access
+the time capsule for automatic nightly backups, as described in
+[[../articles-netbsd-backup][Backup and Restore on NetBSD]]. To access
+the backups via =restore/rmt=, now I first have to access the drives via
+AFP or SMB from another computer in order to get them mounted.
+
+But at least I can rest assured I will reach the backup via =restore=
+from an unmodified default NetBSD installation set, if I need to
+restore to a new disk.
+
+Nevertheless, if someone has an idea how to spin up and mount the time
+capsule disks via command line, I would be grateful if you leave
+a comment at the [[https://reddit.com/r/joergsworld/comments//crossbuilding_for_timecapsule][reddit post]].

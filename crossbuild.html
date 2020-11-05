@@ -1,0 +1,269 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+"http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en">
+<head>
+<!-- 2020-11-05 Do. 10:19 -->
+<meta http-equiv="Content-Type" content="text/html;charset=utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Cross-building time capsule binaries to backup NetBSD</title>
+<meta name="generator" content="Org mode" />
+<meta name="author" content="Jörg Kollmann" />
+<link rel="stylesheet" type="text/css" href="/chrome/rethink.css" />
+<script type="text/javascript">
+/*
+@licstart  The following is the entire license notice for the
+JavaScript code in this tag.
+
+Copyright (C) 2012-2020 Free Software Foundation, Inc.
+
+The JavaScript code in this tag is free software: you can
+redistribute it and/or modify it under the terms of the GNU
+General Public License (GNU GPL) as published by the Free Software
+Foundation, either version 3 of the License, or (at your option)
+any later version.  The code is distributed WITHOUT ANY WARRANTY;
+without even the implied warranty of MERCHANTABILITY or FITNESS
+FOR A PARTICULAR PURPOSE.  See the GNU GPL for more details.
+
+As additional permission under GNU GPL version 3 section 7, you
+may distribute non-source (e.g., minimized or compacted) forms of
+that code without the copy of the GNU GPL normally required by
+section 4, provided you include this license notice and a URL
+through which recipients can access the Corresponding Source.
+
+
+@licend  The above is the entire license notice
+for the JavaScript code in this tag.
+*/
+<!--/*--><![CDATA[/*><!--*/
+ function CodeHighlightOn(elem, id)
+ {
+   var target = document.getElementById(id);
+   if(null != target) {
+     elem.cacheClassElem = elem.className;
+     elem.cacheClassTarget = target.className;
+     target.className = "code-highlighted";
+     elem.className   = "code-highlighted";
+   }
+ }
+ function CodeHighlightOff(elem, id)
+ {
+   var target = document.getElementById(id);
+   if(elem.cacheClassElem)
+     elem.className = elem.cacheClassElem;
+   if(elem.cacheClassTarget)
+     target.className = elem.cacheClassTarget;
+ }
+/*]]>*///-->
+</script>
+</head>
+<body>
+<div id="preamble" class="status">
+<img src="/chrome/image1.jpg"/><div style="padding:2vh"><a style="font-weight:900; text-decoration:none" href="/">Home</a><span style="float: right">last changed: 2020-11-04</span></div>
+</div>
+<div id="content">
+<h1 class="title">Cross-building time capsule binaries to backup NetBSD</h1>
+
+<div id="outline-container-orge90945a" class="outline-2">
+<h2 id="orge90945a">TL;DR</h2>
+<div class="outline-text-2" id="text-orge90945a">
+<ul class="org-ul">
+<li>this is a followup to a previous post about <a href="../articles-netbsd-backup">Backup and Restore on NetBSD</a></li>
+<li>it aims at using <code>dump</code> and <code>restore</code> as rescue tools
+provided by unmodified NetBSD installation media</li>
+<li>this can be used with an Apple Time Capsule with a few preparations</li>
+<li>the time capsule needs ssh access and</li>
+<li>it needs a <a href="https://man.netbsd.org/rmt.8"><code>rmt(8)</code></a> binary</li>
+</ul>
+</div>
+</div>
+
+<div id="outline-container-orgb4e5f3d" class="outline-2">
+<h2 id="orgb4e5f3d">Overview</h2>
+<div class="outline-text-2" id="text-orgb4e5f3d">
+<p>
+As mentioned in a previous post, I'm using my time capsule (also) as a
+backup system for my NetBSD/macppc server. For this, I'm usually
+mounting the remote file system via <code>mount_afp</code>, then using the <code>dump</code>
+and <code>restore</code> tools to dump backups onto it. This works so far, but
+when booting into the ram disk of an installation kernel, the
+<code>mount_afp</code> command (provided by pkgsrc) is missing. So I was thinking
+of cross-compiling the tools needed on the time capsule to provide an
+easy access from a NetBSD rescue system. The <a href="https://man.netbsd.org/restore.8"><code>restore(8)</code></a> tool has the
+builtin ability to access remote hosts using <a href="https://man.netbsd.org/rcmd.3"><code>rcmd(3)</code></a> and <a href="https://man.netbsd.org/rmt.8"><code>rmt(8)</code></a>.
+For this, <code>ssh</code> can be used as remote command execution facility; <code>rmt</code>
+is used for an efficient random access to the backup dumps.
+</p>
+</div>
+</div>
+
+<div id="outline-container-org95272e2" class="outline-2">
+<h2 id="org95272e2">Activating ssh on the time capsule</h2>
+<div class="outline-text-2" id="text-org95272e2">
+<p>
+First of all, we want to be able to ssh into the time capsule. The
+<code>sshd</code> is already in place, as the time capsule actually is a stripped
+down NetBSD system. The ssh access is disabled by default, but can be
+reactivated using acp (airport control protocol?).
+</p>
+
+<p>
+Install airpyrt-tools by Vince Cali:
+</p>
+
+<div class="org-src-container">
+<pre class="src src-shell">git clone https://github.com/x56/airpyrt-tools.git
+python airpyrt-tools/setup.py install --user
+</pre>
+</div>
+
+<p>
+Then set the dbug property and reboot the time capsule:
+</p>
+
+<div class="org-src-container">
+<pre class="src src-shell">python -m acp -t {hostname} -p {password} --setprop dbug 0x3000
+python -m acp -t 1 {hostname} -p {password} --reboot
+</pre>
+</div>
+
+<p>
+Now, we can ssh into it as root, using the admin password.
+Afterwards, you may put your public key into
+<code>/root/.ssh/autorized_keys</code>, this way allowing automatic backups to access the
+system. But you should probably not deactivate password
+authentication. If you need to restore your backup'd system, you
+probably won't get in to the backup unless the key is restored&#x2026;
+</p>
+</div>
+</div>
+
+<div id="outline-container-org2e845ec" class="outline-2">
+<h2 id="org2e845ec">Building <code>rmt</code> for the time capsule</h2>
+<div class="outline-text-2" id="text-org2e845ec">
+<p>
+Next, as it shows, the <code>rmt</code> tool, used for remote media access by <code>dump</code> and <code>restore</code>,
+is missing on the time capsule's reduced NetBSD installation. So, one might
+ask, where do I get this from? And the answer is of course, build it yourself.
+Using the mostly automated cross building system of NetBSD, this is quite an
+easy task. On my time capsule, the system identifies as NetBSD 6.0 evbarm. The
+binaries found on the system are built as ELF 32-bit LSB executables, ARM,
+EABI4, statically linked. So I started building a cross compilation environment
+on my NetBSD 9.0 box, hoping a statically linked binary built in this
+environment would still work on the older time capsule. While this took quite a
+little bit of time on my trusty PPC machine, it worked straight out of the box
+and was probably more easy than to setup a virtualized build service on x86.
+</p>
+
+<p>
+These commands did it:
+</p>
+
+<div class="org-src-container">
+<pre class="src src-shell"><span style="color: #483d8b;">cd</span> /usr/src
+./build.sh -U -O ~/arm-build -m evbarm -a earmv4 tools
+./build.sh -U -u -O ~/arm-build -m evbarm -a earmv4 distribution
+</pre>
+</div>
+
+<p>
+Now the <code>rmt</code> tool can be built as a statically linked program:
+</p>
+
+<div class="org-src-container">
+<pre class="src src-shell"><span style="color: #483d8b;">export</span> <span style="color: #a0522d;">LDSTATIC</span>=-static
+<span style="color: #483d8b;">cd</span> /usr/src/usr.sbin/rmt
+~/arm-build/tooldir.NetBSD-9.0-macppc/bin/nbmake-evbarm
+</pre>
+</div>
+
+<p>
+Finally, we transfer the binary over to the time capsule, put it into <code>/usr/sbin</code> and create a symlink
+to <code>/etc/rmt</code>, where <code>dump</code> and <code>restore</code> expect to find it.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-shell"><span style="color: #483d8b;">cd</span> ~/arm-build/usr.sbin/rmt/
+scp rmt time-capsule:/usr/sbin/rmt
+ssh time-capsule
+<span style="color: #483d8b;">cd</span> /usr/sbin; chmod 555 rmt; ln -s /usr/sbin/rmt /etc/rmt
+</pre>
+</div>
+</div>
+</div>
+
+<div id="outline-container-org8aba490" class="outline-2">
+<h2 id="org8aba490">Backup/Restore</h2>
+<div class="outline-text-2" id="text-org8aba490">
+<p>
+Now, we can directly address the remote disks mounted on the time
+capsule via the NetBSD onboard backup tools <code>dump</code> and <code>restore</code>.
+To do this, we configure <a href="https://man.netbsd.org/rcmd.3"><code>rcmd(3)</code></a> to use <code>ssh</code>:
+</p>
+
+<div class="org-src-container">
+<pre class="src src-shell"><span style="color: #483d8b;">export</span> <span style="color: #a0522d;">RCMD_CMD</span>=ssh
+</pre>
+</div>
+
+<p>
+Then we use <a href="https://man.netbsd.org/dump.8"><code>dump(8)</code></a> or <a href="https://man.netbsd.org/restore.8"><code>restore(8)</code></a> with option <code>-f</code> and give a filename in
+the form of {hostname}:{path}, where {hostname} is our time capsule
+and {path} addresses the backup directory over there. Here it is something
+like <code>/Volumes/dk2/ShareRoot/nbsd-backup</code>.
+</p>
+
+<p>
+Once again, this can also be achieved by piping the data via <code>ssh</code> to
+<code>dd</code>, which works flawlessly in most cases. But if you need random
+access to different parts of the backup, e.g. when doing an
+interactive restore, it doesn't work so well, especially with very
+large backup files.
+</p>
+
+<p>
+For example, to interactively browse such a backup, now you can just use
+something like this:
+</p>
+
+<div class="org-src-container">
+<pre class="src src-shell">env <span style="color: #a0522d;">RCMD_CMD</span>=ssh restore -if time-capsule:/Volumes/dk2/ShareRoot/nbsd-backup/dump.2
+</pre>
+</div>
+</div>
+</div>
+
+<div id="outline-container-org40437d4" class="outline-2">
+<h2 id="org40437d4">Mounting and accessing the backup devices on the time capsule</h2>
+<div class="outline-text-2" id="text-org40437d4">
+<p>
+Stays the question how to mount or access the disks on the time
+capsule if they are spun down. At the moment, I've no idea howo to get
+this done. So for now I will stay at my approach using afp to remotely access
+the time capsule for automatic nightly backups, as described in
+<a href="../articles-netbsd-backup">Backup and Restore on NetBSD</a>. To access
+the backups via <code>restore/rmt</code>, now I first have to access the drives via
+AFP or SMB from another computer in order to get them mounted.
+</p>
+
+<p>
+But at least I can rest assured I will reach the backup via <code>restore</code>
+from an unmodified default NetBSD installation set, if I need to
+restore to a new disk.
+</p>
+
+<p>
+Nevertheless, if someone has an idea how to spin up and mount the time
+capsule disks via command line, I would be grateful if you leave
+a comment at the <a href="https://reddit.com/r/joergsworld/comments//crossbuilding_for_timecapsule">reddit post</a>.
+</p>
+</div>
+</div>
+</div>
+<div id="postamble" class="status">
+<p class="author">Author: Jörg Kollmann
+(Reddit: <a href="https://www.reddit.com/user/e17i">u/e17i</a>)</p> <p>Made on
+emacs org-mode with <a href="https://jessekelly881-rethink.surge.sh/">Rethink</a></p>
+</div>
+</body>
+</html>
